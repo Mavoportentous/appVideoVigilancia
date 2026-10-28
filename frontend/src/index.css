@@ -17,4 +17,5 @@
   }
   .btn-primary { @apply bg-pine text-paper active:bg-pine-dark; }
   .btn-secondary { @apply border-4 border-pine text-pine active:bg-pine/10; }
+  .btn-danger { @apply border-4 border-signal text-signal active:bg-signal/10; }
 }

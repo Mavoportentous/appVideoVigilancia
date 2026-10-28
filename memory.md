@@ -184,11 +184,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - [x] Diseño mobile-first (botones grandes)
 
 ### Etapa 3 — Cámara local (Día 4)
-- [ ] Pedir permiso de cámara
-- [ ] Mostrar video local
-- [ ] Elegir cámara frontal / trasera
-- [ ] Resolución baja (640x480 o máx. 1280x720) con fallback ante `OverconstrainedError`
-- [ ] Botón apagar / encender cámara
+- [x] Pedir permiso de cámara
+- [x] Mostrar video local
+- [x] Elegir cámara frontal / trasera
+- [x] Resolución baja (640x480 o máx. 1280x720) con fallback ante `OverconstrainedError`
+- [x] Botón apagar / encender cámara
 
 ### Etapa 4 — Servidor de señalización (Días 5-6)
 - [ ] Servidor Express + Socket.io
@@ -241,11 +241,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 ## 9. Estado actual
 
-- **Etapa en curso:** Etapa 3 (cámara local)
-- **Completadas:** Etapa 1 (scaffolding, subido a GitHub) y Etapa 2 (interfaz básica)
-- **Último avance:** interfaz de Home, Cámara (código de sala + copiar) y Visor (ingresar código, ruta `/viewer/:code`) lista y compilando (2026-10-28)
-- **Próximo paso:** Etapa 3 — permiso de cámara, vista local, cambio frontal/trasera, apagar/encender
-- **Bloqueo abierto:** el teléfono aún no logra abrir `https://<IP-del-PC>:5173` aunque Node.js está permitido en el Firewall (ver sección 12)
+- **Etapa en curso:** Etapa 4 (servidor de señalización)
+- **Completadas:** Etapas 1, 2 y 3
+- **Último avance:** cámara local funcionando en `/camera`: permiso, vista previa, cambio frontal/trasera, encender/apagar, 720p/24fps con fallback (2026-10-28)
+- **Próximo paso:** Etapa 4 — hook `useSocket`, unirse a la sala desde Cámara y Visor, ver `user-joined`/`user-left` entre dos dispositivos reales (el backend ya tiene los eventos)
+- **Bloqueos:** ninguno (el teléfono ya abre la app por la red local)
 
 ---
 
@@ -256,6 +256,7 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-28 | Plan definido, stack elegido y ajustes aplicados | Se crea este memory.md |
 | 2026-10-28 | Scaffolding Etapa 1 generado | Backend: `/api/health`, `/api/rooms`, `/api/turn-credentials` (solo STUN), sockets `join-room`/`user-joined`/`user-left` con máx. 2 por sala (probado). Frontend: Vite + Tailwind + HTTPS local, rutas `/`, `/camera`, `/viewer` (placeholders), build OK |
 | 2026-10-28 | Etapa 2 hecha | Componentes `PageLayout`, `RoomCode`, `RoomCodeInput`, `StatusIndicator`, `ViewerView`; hook `useRoomCode`; utilidades `roomCode`, `storage`, `clipboard`; rutas `/viewer` y `/viewer/:code`; estilos `.btn` |
+| 2026-10-28 | Etapa 3 hecha | Utilidades `media.js` (fallback de restricciones, mensajes de error), hook `useCamera`, componente `CameraView`, página `Camera` con encender/apagar y cambio de cámara. Probado con cámara simulada: permiso denegado, cámara ocupada, track `ended`, apagar durante la espera del permiso y salida de la página |
 
 ---
 
@@ -271,13 +272,17 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-28 | Terminal preferida: Git Bash | Comandos del README en sintaxis bash |
 | 2026-10-28 | El código de sala de la cámara se genera en el teléfono (crypto) y se guarda en localStorage | No depende de que Render esté despierto; el servidor acepta cualquier código válido al hacer `join-room`. `/api/rooms` queda disponible pero sin uso |
 | 2026-10-28 | Códigos: 8 caracteres, alfabeto sin 0/O/1/I/L, se muestran como `XXXX-XXXX` | Evitar confusiones al escribirlos |
+| 2026-10-28 | La cámara no se enciende sola: el usuario toca "Encender cámara" | El permiso se pide con un gesto del usuario (más fiable en móviles) |
+| 2026-10-28 | `facingMode` con `ideal` y la preferencia (trasera/frontal) se guarda en localStorage | No falla si el dispositivo solo tiene una cámara |
+| 2026-10-28 | Cadena de restricciones: 720p/24fps → solo facingMode → `video: true` | Teléfonos viejos que rechazan resoluciones |
+| 2026-10-28 | La cámara se apaga siempre al salir de la página y se libera la anterior antes de abrir otra | Teléfonos viejos no soportan dos cámaras abiertas a la vez |
 
 ---
 
 ## 12. Problemas conocidos y pendientes
 
 - Verificar condiciones vigentes del plan gratuito de Cloudflare TURN y de Render antes de desplegar.
-- **Teléfono no llega al PC por la red local** (Firewall: Node.js ya permitido en privada y pública). Revisar: IP correcta del adaptador WiFi/Ethernet (no adaptadores virtuales), misma red, aislamiento de clientes del router/red de invitados, regla de entrada por puerto 5173 y 3001, certificado autofirmado aceptado.
+- ~~Teléfono no llegaba al PC por la red local~~ — resuelto (2026-10-28).
 - Probar compatibilidad real en los teléfonos viejos (versión de Android/iOS y navegador).
 
 ---
