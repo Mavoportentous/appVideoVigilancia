@@ -15,6 +15,7 @@
 - **Sin audio:** solo video.
 - **Dispositivos objetivo:** teléfonos viejos (rendimiento limitado), diseño mobile-first.
 - **Creado:** 2026-10-28
+- **Repositorio:** https://github.com/Mavoportentous/appVideoVigilancia
 
 ---
 
@@ -173,14 +174,14 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - [x] Inicializar backend con Node.js
 - [x] Configurar Tailwind
 - [x] Configurar HTTPS local en Vite (`basic-ssl`)
-- [ ] Subir ambos a GitHub
+- [x] Subir ambos a GitHub
 
 ### Etapa 2 — Interfaz básica (Días 2-3)
-- [ ] Home (`/`) con botones "Usar como Cámara" y "Ver Cámara"
-- [ ] Página Cámara (`/camera`)
-- [ ] Página Visor (`/viewer`)
-- [ ] Componente para generar / ingresar código de sala
-- [ ] Diseño mobile-first (botones grandes)
+- [x] Home (`/`) con botones "Usar como Cámara" y "Ver Cámara"
+- [x] Página Cámara (`/camera`)
+- [x] Página Visor (`/viewer`)
+- [x] Componente para generar / ingresar código de sala
+- [x] Diseño mobile-first (botones grandes)
 
 ### Etapa 3 — Cámara local (Día 4)
 - [ ] Pedir permiso de cámara
@@ -240,10 +241,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 ## 9. Estado actual
 
-- **Etapa en curso:** Etapa 1 (casi completa; falta subir a GitHub)
-- **Último avance:** scaffolding de frontend y backend generado y probado (2026-10-28)
-- **Próximo paso:** copiar a `E:\LMK\appVideoVigilancia`, `npm install` en ambas carpetas, probar desde el teléfono y subir a GitHub; luego Etapa 2 (interfaz)
-- **Bloqueos:** ninguno
+- **Etapa en curso:** Etapa 3 (cámara local)
+- **Completadas:** Etapa 1 (scaffolding, subido a GitHub) y Etapa 2 (interfaz básica)
+- **Último avance:** interfaz de Home, Cámara (código de sala + copiar) y Visor (ingresar código, ruta `/viewer/:code`) lista y compilando (2026-10-28)
+- **Próximo paso:** Etapa 3 — permiso de cámara, vista local, cambio frontal/trasera, apagar/encender
+- **Bloqueo abierto:** el teléfono aún no logra abrir `https://<IP-del-PC>:5173` aunque Node.js está permitido en el Firewall (ver sección 12)
 
 ---
 
@@ -253,6 +255,7 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 |---|---|---|
 | 2026-10-28 | Plan definido, stack elegido y ajustes aplicados | Se crea este memory.md |
 | 2026-10-28 | Scaffolding Etapa 1 generado | Backend: `/api/health`, `/api/rooms`, `/api/turn-credentials` (solo STUN), sockets `join-room`/`user-joined`/`user-left` con máx. 2 por sala (probado). Frontend: Vite + Tailwind + HTTPS local, rutas `/`, `/camera`, `/viewer` (placeholders), build OK |
+| 2026-10-28 | Etapa 2 hecha | Componentes `PageLayout`, `RoomCode`, `RoomCodeInput`, `StatusIndicator`, `ViewerView`; hook `useRoomCode`; utilidades `roomCode`, `storage`, `clipboard`; rutas `/viewer` y `/viewer/:code`; estilos `.btn` |
 
 ---
 
@@ -266,12 +269,15 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-28 | Wake Lock con fallback NoSleep.js | Compatibilidad con teléfonos viejos |
 | 2026-10-28 | Proxy de Vite para `/api` y `/socket.io` en desarrollo | Evita "mixed content" (frontend HTTPS vs backend HTTP) al probar en el teléfono |
 | 2026-10-28 | Terminal preferida: Git Bash | Comandos del README en sintaxis bash |
+| 2026-10-28 | El código de sala de la cámara se genera en el teléfono (crypto) y se guarda en localStorage | No depende de que Render esté despierto; el servidor acepta cualquier código válido al hacer `join-room`. `/api/rooms` queda disponible pero sin uso |
+| 2026-10-28 | Códigos: 8 caracteres, alfabeto sin 0/O/1/I/L, se muestran como `XXXX-XXXX` | Evitar confusiones al escribirlos |
 
 ---
 
 ## 12. Problemas conocidos y pendientes
 
 - Verificar condiciones vigentes del plan gratuito de Cloudflare TURN y de Render antes de desplegar.
+- **Teléfono no llega al PC por la red local** (Firewall: Node.js ya permitido en privada y pública). Revisar: IP correcta del adaptador WiFi/Ethernet (no adaptadores virtuales), misma red, aislamiento de clientes del router/red de invitados, regla de entrada por puerto 5173 y 3001, certificado autofirmado aceptado.
 - Probar compatibilidad real en los teléfonos viejos (versión de Android/iOS y navegador).
 
 ---

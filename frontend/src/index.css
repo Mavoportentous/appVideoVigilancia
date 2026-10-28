@@ -10,3 +10,11 @@
   }
   :focus-visible { @apply outline outline-4 outline-offset-2 outline-sun; }
 }
+
+@layer components {
+  .btn {
+    @apply flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl px-6 text-lg font-bold disabled:opacity-50;
+  }
+  .btn-primary { @apply bg-pine text-paper active:bg-pine-dark; }
+  .btn-secondary { @apply border-4 border-pine text-pine active:bg-pine/10; }
+}

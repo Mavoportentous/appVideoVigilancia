@@ -1,12 +1,57 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Eye } from 'lucide-react';
+import PageLayout from '../components/PageLayout.jsx';
+import RoomCodeInput from '../components/RoomCodeInput.jsx';
+import ViewerView from '../components/ViewerView.jsx';
+import { CODE_LENGTH, isValidCode, normalizeCode } from '../utils/roomCode.js';
+import { safeGet, safeSet } from '../utils/storage.js';
 
-// Etapa 2: ingresar código de sala. Etapa 5: mostrar el video recibido.
-export default function Viewer() {
+const KEY = 'dogcam:viewer-code';
+
+function CodeEntry() {
+  const navigate = useNavigate();
+  const [value, setValue] = useState(() => normalizeCode(safeGet(KEY)));
+  const [error, setError] = useState('');
+
+  function handleChange(next) {
+    setValue(next);
+    setError('');
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const code = normalizeCode(value);
+    if (code.length < CODE_LENGTH) {
+      setError(`El código tiene ${CODE_LENGTH} caracteres. Faltan ${CODE_LENGTH - code.length}.`);
+      return;
+    }
+    if (!isValidCode(code)) {
+      setError('El código solo usa letras (sin I, L ni O) y números del 2 al 9. Revisa cómo lo escribiste.');
+      return;
+    }
+    safeSet(KEY, code);
+    navigate(`/viewer/${code}`);
+  }
+
   return (
-    <main className="mx-auto max-w-md px-5 py-8">
-      <Link to="/" className="font-bold text-pine underline">Volver</Link>
-      <h1 className="mt-4 text-2xl font-bold">Visor</h1>
-      <p className="mt-2">Pendiente: Etapa 2 y 5.</p>
-    </main>
+    <PageLayout title="Ver cámara">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        <RoomCodeInput value={value} onChange={handleChange} error={error} />
+        <button type="submit" className="btn btn-primary">
+          <Eye size={24} aria-hidden="true" />
+          Ver cámara
+        </button>
+      </form>
+    </PageLayout>
   );
+}
+
+export default function Viewer() {
+  const { code: param } = useParams();
+  if (param === undefined) return <CodeEntry />;
+
+  const code = normalizeCode(param);
+  if (!isValidCode(code)) return <Navigate to="/viewer" replace />;
+  return <ViewerView code={code} />;
 }

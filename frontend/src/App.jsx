@@ -9,6 +9,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/camera" element={<Camera />} />
       <Route path="/viewer" element={<Viewer />} />
+      <Route path="/viewer/:code" element={<Viewer />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

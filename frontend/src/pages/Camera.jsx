@@ -1,12 +1,29 @@
-import { Link } from 'react-router-dom';
+import { CameraOff, RefreshCw } from 'lucide-react';
+import PageLayout from '../components/PageLayout.jsx';
+import RoomCode from '../components/RoomCode.jsx';
+import StatusIndicator from '../components/StatusIndicator.jsx';
+import { useRoomCode } from '../hooks/useRoomCode.js';
 
-// Etapa 3: permiso de cámara, vista local y cambio frontal/trasera.
+// Etapa 3: aquí se encenderá la cámara y se mostrará la vista local.
 export default function Camera() {
+  const { code, regenerate } = useRoomCode();
+
   return (
-    <main className="mx-auto max-w-md px-5 py-8">
-      <Link to="/" className="font-bold text-pine underline">Volver</Link>
-      <h1 className="mt-4 text-2xl font-bold">Cámara</h1>
-      <p className="mt-2">Pendiente: Etapa 3.</p>
-    </main>
+    <PageLayout title="Cámara">
+      <p>En el otro dispositivo toca «Ver cámara» y escribe este código.</p>
+
+      <RoomCode code={code} />
+
+      <StatusIndicator status="idle" label="Cámara apagada" />
+      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-2xl border-4 border-dashed border-ink/20 text-ink/60">
+        <CameraOff size={40} aria-hidden="true" />
+        <p>Aquí se verá la imagen de la cámara</p>
+      </div>
+
+      <button type="button" className="btn btn-secondary" onClick={regenerate}>
+        <RefreshCw size={22} aria-hidden="true" />
+        Generar código nuevo
+      </button>
+    </PageLayout>
   );
 }
