@@ -191,10 +191,10 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - [x] Botón apagar / encender cámara
 
 ### Etapa 4 — Servidor de señalización (Días 5-6)
-- [ ] Servidor Express + Socket.io
-- [ ] Salas por código aleatorio, máx. 2 participantes
-- [ ] Eventos: `join-room`, `user-joined`, `user-left`
-- [ ] Probar que dos dispositivos se unan a la misma sala
+- [x] Servidor Express + Socket.io
+- [x] Salas por código aleatorio, máx. 2 participantes
+- [x] Eventos: `join-room`, `user-joined`, `user-left`
+- [ ] Probar que dos dispositivos reales se unan a la misma sala (pendiente: prueba del usuario con PC/teléfonos)
 
 ### Etapa 5 — WebRTC básico (Días 7-10) ⭐ la más importante
 - [ ] Hook `useWebRTC.js`
@@ -241,11 +241,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 ## 9. Estado actual
 
-- **Etapa en curso:** Etapa 4 (servidor de señalización)
+- **Etapa en curso:** Etapa 4 (señalización) — código listo, falta la prueba con dos dispositivos reales
 - **Completadas:** Etapas 1, 2 y 3
-- **Último avance:** cámara local funcionando en `/camera`: permiso, vista previa, cambio frontal/trasera, encender/apagar, 720p/24fps con fallback (2026-10-28)
-- **Próximo paso:** Etapa 4 — hook `useSocket`, unirse a la sala desde Cámara y Visor, ver `user-joined`/`user-left` entre dos dispositivos reales (el backend ya tiene los eventos)
-- **Bloqueos:** ninguno (el teléfono ya abre la app por la red local)
+- **Último avance:** Cámara y Visor se conectan al servidor, entran a la sala con su rol y muestran quién entra/sale (estado + registro de actividad); probado con clientes simulados y por el proxy HTTPS (2026-10-31)
+- **Próximo paso:** el usuario prueba con dos dispositivos (ver sección 13); si todo bien, Etapa 5 — WebRTC básico (`useWebRTC.js`, offer/answer/ICE por el `socket` de `useSocket`)
+- **Bloqueos:** ninguno
 
 ---
 
@@ -257,6 +257,7 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-28 | Scaffolding Etapa 1 generado | Backend: `/api/health`, `/api/rooms`, `/api/turn-credentials` (solo STUN), sockets `join-room`/`user-joined`/`user-left` con máx. 2 por sala (probado). Frontend: Vite + Tailwind + HTTPS local, rutas `/`, `/camera`, `/viewer` (placeholders), build OK |
 | 2026-10-28 | Etapa 2 hecha | Componentes `PageLayout`, `RoomCode`, `RoomCodeInput`, `StatusIndicator`, `ViewerView`; hook `useRoomCode`; utilidades `roomCode`, `storage`, `clipboard`; rutas `/viewer` y `/viewer/:code`; estilos `.btn` |
 | 2026-10-28 | Etapa 3 hecha | Utilidades `media.js` (fallback de restricciones, mensajes de error), hook `useCamera`, componente `CameraView`, página `Camera` con encender/apagar y cambio de cámara. Probado con cámara simulada: permiso denegado, cámara ocupada, track `ended`, apagar durante la espera del permiso y salida de la página |
+| 2026-10-31 | Etapa 4 (código) hecha | Backend con roles (1 cámara + 1 visor, el nuevo reemplaza al anterior). Frontend: hook `useSocket`, `ConnectionStatus`, `ActivityLog`; Cámara y Visor entran a la sala y muestran estado. Pruebas: 9 de backend, 13 de frontend (servidor simulado) y 1 de punta a punta por el proxy HTTPS |
 
 ---
 
@@ -272,10 +273,15 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-28 | Terminal preferida: Git Bash | Comandos del README en sintaxis bash |
 | 2026-10-28 | El código de sala de la cámara se genera en el teléfono (crypto) y se guarda en localStorage | No depende de que Render esté despierto; el servidor acepta cualquier código válido al hacer `join-room`. `/api/rooms` queda disponible pero sin uso |
 | 2026-10-28 | Códigos: 8 caracteres, alfabeto sin 0/O/1/I/L, se muestran como `XXXX-XXXX` | Evitar confusiones al escribirlos |
+| 2026-10-28 | Script `iniciar-dogcam.bat` (doble clic) para levantar backend y frontend | Evita repetir comandos; libera los puertos 5173/3001 y usa `--strictPort` para que Vite no cambie de puerto sin avisar |
 | 2026-10-28 | La cámara no se enciende sola: el usuario toca "Encender cámara" | El permiso se pide con un gesto del usuario (más fiable en móviles) |
 | 2026-10-28 | `facingMode` con `ideal` y la preferencia (trasera/frontal) se guarda en localStorage | No falla si el dispositivo solo tiene una cámara |
 | 2026-10-28 | Cadena de restricciones: 720p/24fps → solo facingMode → `video: true` | Teléfonos viejos que rechazan resoluciones |
 | 2026-10-28 | La cámara se apaga siempre al salir de la página y se libera la anterior antes de abrir otra | Teléfonos viejos no soportan dos cámaras abiertas a la vez |
+| 2026-10-31 | `join-room` recibe `{code, role}`; roles `camera` y `viewer`, máx. 1 de cada uno por sala | Evita dos cámaras o dos visores en la misma sala |
+| 2026-10-31 | Si el rol ya está ocupado, la conexión nueva REEMPLAZA a la anterior (la vieja recibe `replaced`) | Permite reconectar un teléfono cuya conexión quedó colgada; `room-full` ya no existe |
+| 2026-10-31 | Al reconectar, el cliente vuelve a entrar a la sala solo | WiFi inestable y teléfonos que suspenden la conexión |
+| 2026-10-31 | Tras 5 s sin conectar se muestra "Despertando el servidor…" | Cold start del plan free de Render |
 
 ---
 
@@ -291,5 +297,14 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 - En desarrollo `SERVER_URL` queda vacío (mismo origen vía proxy); en producción usar `VITE_SERVER_URL` apuntando a Render.
 - Firewall de Windows: permitir Node.js en red privada para que el teléfono llegue al PC.
+
+- Arranque: doble clic en `iniciar-dogcam.bat`. Si la app no abre en el teléfono, revisar la línea `Network:` de la ventana del Frontend (la IP puede cambiar).
+
+- **Protocolo de señalización (socket.io):**
+  - Cliente → servidor: `join-room` con `{ code, role: 'camera' | 'viewer' }` y ack `{ ok: true, code, role, peer: {id, role} | null }` o `{ ok: false, error: 'invalid-code' | 'invalid-role' }`.
+  - Servidor → cliente: `user-joined {id, role}`, `user-left {id, role}`, `replaced`.
+  - `useSocket({ code, role })` devuelve `{ socket, server, room, peer, error, events }`. `server`: connecting | waking | online | offline. `room`: joining | waiting | paired | replaced | error.
+- **Prueba de la Etapa 4 con dos dispositivos:** (1) teléfono en `/camera` y PC o segundo teléfono en `/viewer` con el mismo código → ambos deben mostrar "conectado" y un registro de actividad; (2) cerrar o recargar uno → el otro muestra "salió" y vuelve a "Esperando…"; (3) apagar el WiFi del teléfono unos segundos y volver a encenderlo → se reconecta y vuelve a emparejarse; (4) abrir el mismo código en un tercer dispositivo con el mismo rol → el primero muestra "La sala se abrió en otro dispositivo".
+- En desarrollo (React StrictMode) el efecto se monta dos veces; no afecta a producción.
 
 *(Agregar aquí hallazgos útiles durante el desarrollo: errores resueltos, configuraciones que funcionaron, comandos útiles.)*

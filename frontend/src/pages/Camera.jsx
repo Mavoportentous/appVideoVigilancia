@@ -3,8 +3,11 @@ import PageLayout from '../components/PageLayout.jsx';
 import RoomCode from '../components/RoomCode.jsx';
 import CameraView from '../components/CameraView.jsx';
 import StatusIndicator from '../components/StatusIndicator.jsx';
+import ConnectionStatus from '../components/ConnectionStatus.jsx';
+import ActivityLog from '../components/ActivityLog.jsx';
 import { useRoomCode } from '../hooks/useRoomCode.js';
 import { useCamera } from '../hooks/useCamera.js';
+import { useSocket } from '../hooks/useSocket.js';
 import { FACING } from '../utils/media.js';
 
 const STATUS = {
@@ -14,9 +17,10 @@ const STATUS = {
   error: { status: 'disconnected', label: 'Error de cámara' },
 };
 
-// Etapa 5: aquí se enviará el stream al visor por WebRTC.
+// Etapa 5: aquí se enviará el stream al visor por WebRTC (usando conn.socket).
 export default function Camera() {
   const { code, regenerate } = useRoomCode();
+  const conn = useSocket({ code, role: 'camera' });
   const { stream, status, error, facing, settings, toggle, switchCamera } = useCamera();
   const indicator = STATUS[status];
   const isActive = status === 'on' || status === 'starting';
@@ -26,6 +30,8 @@ export default function Camera() {
       <p>En el otro dispositivo toca «Ver cámara» y escribe este código.</p>
 
       <RoomCode code={code} />
+
+      <ConnectionStatus conn={conn} peerRole="viewer" />
 
       <StatusIndicator status={indicator.status} label={indicator.label} />
       <CameraView stream={stream} status={status} settings={settings} />
@@ -54,6 +60,8 @@ export default function Camera() {
         <RefreshCw size={22} aria-hidden="true" />
         Generar código nuevo
       </button>
+
+      <ActivityLog events={conn.events} />
     </PageLayout>
   );
 }
