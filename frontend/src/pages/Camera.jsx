@@ -8,6 +8,7 @@ import ActivityLog from '../components/ActivityLog.jsx';
 import { useRoomCode } from '../hooks/useRoomCode.js';
 import { useCamera } from '../hooks/useCamera.js';
 import { useSocket } from '../hooks/useSocket.js';
+import { useWebRTCSender } from '../hooks/useWebRTC.js';
 import { FACING } from '../utils/media.js';
 
 const STATUS = {
@@ -17,11 +18,29 @@ const STATUS = {
   error: { status: 'disconnected', label: 'Error de cámara' },
 };
 
-// Etapa 5: aquí se enviará el stream al visor por WebRTC (usando conn.socket).
+/** Qué decirle a la persona sobre el envío de video al visor. */
+function describeSending(state, cameraOn) {
+  switch (state) {
+    case 'connected':
+      return { text: cameraOn ? 'enviando video' : 'sin imagen (cámara apagada)' };
+    case 'failed':
+      return { text: 'no se pudo conectar el video', bad: true };
+    case 'disconnected':
+      return { text: 'video interrumpido', bad: true };
+    case 'negotiating':
+      return { text: 'conectando el video…' };
+    default:
+      return null;
+  }
+}
+
 export default function Camera() {
   const { code, regenerate } = useRoomCode();
   const conn = useSocket({ code, role: 'camera' });
   const { stream, status, error, facing, settings, toggle, switchCamera } = useCamera();
+  const viewerId = conn.room === 'paired' && conn.peer?.role === 'viewer' ? conn.peer.id : null;
+  const sender = useWebRTCSender({ socket: conn.socket, viewerId, stream });
+  const video = describeSending(sender.state, status === 'on');
   const indicator = STATUS[status];
   const isActive = status === 'on' || status === 'starting';
 
@@ -31,7 +50,7 @@ export default function Camera() {
 
       <RoomCode code={code} />
 
-      <ConnectionStatus conn={conn} peerRole="viewer" />
+      <ConnectionStatus conn={conn} peerRole="viewer" video={video} />
 
       <StatusIndicator status={indicator.status} label={indicator.label} />
       <CameraView stream={stream} status={status} settings={settings} />

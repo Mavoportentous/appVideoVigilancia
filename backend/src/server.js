@@ -33,6 +33,14 @@ app.get('/api/turn-credentials', (_req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: ORIGINS } });
 
+// Mensajes de WebRTC que el servidor solo reenvía al otro dispositivo de la sala.
+//   ready        el visor pide que la cámara inicie una sesión
+//   offer/answer descripciones SDP
+//   candidate    candidatos ICE
+//   camera-state la cámara avisa si está enviando imagen o no
+const SIGNAL_TYPES = new Set(['ready', 'offer', 'answer', 'candidate', 'camera-state']);
+const MAX_SIGNAL_BYTES = 20_000; // un SDP típico pesa menos de 10 KB
+
 const log = (...args) => console.log(new Date().toLocaleTimeString('es-MX'), ...args);
 
 io.on('connection', (socket) => {
@@ -73,6 +81,14 @@ io.on('connection', (socket) => {
     log(`[${result.code}] entró ${result.role}`);
 
     reply({ ok: true, code: result.code, role: result.role, peer: result.peer });
+  });
+
+  socket.on('signal', (msg) => {
+    if (!current) return; // solo quien está en una sala puede señalizar
+    if (!msg || typeof msg !== 'object' || !SIGNAL_TYPES.has(msg.type)) return;
+    if (JSON.stringify(msg).length > MAX_SIGNAL_BYTES) return;
+    // La sala tiene como máximo 2 participantes: esto llega solo al otro.
+    socket.to(current.code).emit('signal', msg);
   });
 
   socket.on('disconnect', leaveCurrent);

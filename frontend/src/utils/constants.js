@@ -10,3 +10,6 @@ export const VIDEO_LIMITS = {
   height: { ideal: 720, max: 720 },
   frameRate: { ideal: 24, max: 30 },
 };
+
+// Tope de bitrate del video enviado: cuida la subida de teléfonos viejos y la cuota de TURN.
+export const MAX_VIDEO_BITRATE = 1_200_000; // bits por segundo

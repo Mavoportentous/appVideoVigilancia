@@ -30,8 +30,17 @@ export function describeConnection({ server, room, error }, peerRole) {
   }
 }
 
-/** peerRole: el rol del OTRO dispositivo ('viewer' en la cámara, 'camera' en el visor). */
-export default function ConnectionStatus({ conn, peerRole }) {
-  const { status, label } = describeConnection(conn, peerRole);
-  return <StatusIndicator status={status} label={label} />;
+/**
+ * peerRole: el rol del OTRO dispositivo ('viewer' en la cámara, 'camera' en el visor).
+ * video: { text, bad } opcional; se añade al estado cuando ya están emparejados.
+ */
+export default function ConnectionStatus({ conn, peerRole, video }) {
+  const base = describeConnection(conn, peerRole);
+  const paired = base.status === 'connected' && video?.text;
+  return (
+    <StatusIndicator
+      status={paired && video.bad ? 'disconnected' : base.status}
+      label={paired ? `${base.label} · ${video.text}` : base.label}
+    />
+  );
 }

@@ -38,42 +38,38 @@
 
 ```
 appVideoVigilancia/
-├── frontend/                 # React (Vite)
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── CameraView.jsx
-│   │   │   ├── ViewerView.jsx
-│   │   │   ├── RoomCode.jsx
-│   │   │   └── StatusIndicator.jsx
-│   │   ├── hooks/
-│   │   │   ├── useWebRTC.js
-│   │   │   ├── useSocket.js
-│   │   │   └── useWakeLock.js          # NUEVO: Wake Lock + fallback NoSleep
-│   │   ├── pages/
-│   │   │   ├── Home.jsx
-│   │   │   ├── Camera.jsx
-│   │   │   └── Viewer.jsx
-│   │   ├── utils/
-│   │   │   ├── webrtc.js
-│   │   │   └── constants.js
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
+├── frontend/                       # React (Vite) — HTTPS local con basic-ssl + proxy a /api y /socket.io
+│   └── src/
+│       ├── components/
+│       │   ├── ActivityLog.jsx         # últimos eventos de la sala (quién entró/salió)
+│       │   ├── CameraView.jsx          # vista previa local de la cámara
+│       │   ├── ConnectionStatus.jsx    # estado servidor/sala/video con texto
+│       │   ├── PageLayout.jsx
+│       │   ├── RemoteVideo.jsx         # <video> del visor + mensajes (apagada, conectando, reintentar)
+│       │   ├── RoomCode.jsx            # código grande + copiar
+│       │   ├── RoomCodeInput.jsx       # campo para escribir el código
+│       │   ├── StatusIndicator.jsx
+│       │   └── ViewerView.jsx          # pantalla del visor (useSocket + useWebRTCReceiver)
+│       ├── hooks/
+│       │   ├── useCamera.js            # getUserMedia, frontal/trasera, errores, apagado
+│       │   ├── useRoomCode.js          # código de la cámara (localStorage)
+│       │   ├── useSocket.js            # socket.io + entrar a la sala con rol + estados
+│       │   └── useWebRTC.js            # useWebRTCSender (cámara) y useWebRTCReceiver (visor)
+│       ├── pages/                      # Home.jsx, Camera.jsx, Viewer.jsx
+│       ├── utils/                      # clipboard, constants, media, roomCode, storage, webrtc
+│       ├── App.jsx  main.jsx  index.css
+│       └── (rutas: /, /camera, /viewer, /viewer/:code)
 │
-├── backend/                  # Node.js + Socket.io
-│   ├── src/
-│   │   ├── server.js
-│   │   ├── rooms.js
-│   │   └── turn.js                     # NUEVO: credenciales TURN temporales
-│   ├── package.json
-│   └── .env.example
+├── backend/                        # Node.js + Express + Socket.io
+│   └── src/
+│       ├── server.js                   # /api/health, /api/rooms, /api/turn-credentials, join-room, signal
+│       └── rooms.js                    # salas: 1 cámara + 1 visor, el nuevo reemplaza al anterior
 │
-├── memory.md                 # este archivo
+├── iniciar-dogcam.bat              # doble clic: libera puertos y levanta backend + frontend
+├── memory.md                       # este archivo
 └── README.md
 ```
+Pendiente de crear: `useWakeLock.js` (Etapa 7) y la lógica de TURN en el backend (Etapa 6).
 
 ---
 
@@ -194,15 +190,15 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - [x] Servidor Express + Socket.io
 - [x] Salas por código aleatorio, máx. 2 participantes
 - [x] Eventos: `join-room`, `user-joined`, `user-left`
-- [ ] Probar que dos dispositivos reales se unan a la misma sala (pendiente: prueba del usuario con PC/teléfonos)
+- [x] Probar que dos dispositivos reales se unan a la misma sala (probado en PC + Samsung Galaxy S26; el Pixel 8 Pro no abre la app, ver sección 12)
 
 ### Etapa 5 — WebRTC básico (Días 7-10) ⭐ la más importante
-- [ ] Hook `useWebRTC.js`
-- [ ] Flujo unidireccional: Cámara crea offer → Socket.io → Visor crea answer
-- [ ] Intercambio de ICE candidates
-- [ ] STUN de Google
-- [ ] Visor muestra el stream recibido
-- [ ] Probar en la misma red (solo STUN) antes de pasar a TURN
+- [x] Hook `useWebRTC.js`
+- [x] Flujo unidireccional: Cámara crea offer → Socket.io → Visor crea answer
+- [x] Intercambio de ICE candidates
+- [x] STUN de Google
+- [x] Visor muestra el stream recibido
+- [ ] Probar en la misma red (solo STUN) con dispositivos reales antes de pasar a TURN (pendiente: prueba del usuario)
 
 ### Etapa 6 — Funcionamiento entre redes distintas (Días 11-13)
 - [ ] Cuenta en Cloudflare y activar Realtime TURN
@@ -241,11 +237,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 ## 9. Estado actual
 
-- **Etapa en curso:** Etapa 4 (señalización) — código listo, falta la prueba con dos dispositivos reales
-- **Completadas:** Etapas 1, 2 y 3
-- **Último avance:** Cámara y Visor se conectan al servidor, entran a la sala con su rol y muestran quién entra/sale (estado + registro de actividad); probado con clientes simulados y por el proxy HTTPS (2026-10-31)
-- **Próximo paso:** el usuario prueba con dos dispositivos (ver sección 13); si todo bien, Etapa 5 — WebRTC básico (`useWebRTC.js`, offer/answer/ICE por el `socket` de `useSocket`)
-- **Bloqueos:** ninguno
+- **Etapa en curso:** Etapa 5 (WebRTC básico) — código listo y probado; falta la prueba del usuario con dispositivos reales en la misma red
+- **Completadas:** Etapas 1, 2, 3 y 4
+- **Último avance:** la cámara envía video al visor por WebRTC (offer/answer/ICE con STUN de Google); encender/apagar/cambiar de cámara en vivo sin renegociar (2026-10-31)
+- **Próximo paso:** que el usuario pruebe en la misma WiFi (ver sección 13); luego Etapa 6 — TURN de Cloudflare (credenciales por `GET /api/turn-credentials`) para probar entre redes distintas
+- **Bloqueos:** ninguno (el problema del Pixel 8 Pro era una regla de seguridad de Chrome y ya accede)
 
 ---
 
@@ -258,6 +254,8 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-28 | Etapa 2 hecha | Componentes `PageLayout`, `RoomCode`, `RoomCodeInput`, `StatusIndicator`, `ViewerView`; hook `useRoomCode`; utilidades `roomCode`, `storage`, `clipboard`; rutas `/viewer` y `/viewer/:code`; estilos `.btn` |
 | 2026-10-28 | Etapa 3 hecha | Utilidades `media.js` (fallback de restricciones, mensajes de error), hook `useCamera`, componente `CameraView`, página `Camera` con encender/apagar y cambio de cámara. Probado con cámara simulada: permiso denegado, cámara ocupada, track `ended`, apagar durante la espera del permiso y salida de la página |
 | 2026-10-31 | Etapa 4 (código) hecha | Backend con roles (1 cámara + 1 visor, el nuevo reemplaza al anterior). Frontend: hook `useSocket`, `ConnectionStatus`, `ActivityLog`; Cámara y Visor entran a la sala y muestran estado. Pruebas: 9 de backend, 13 de frontend (servidor simulado) y 1 de punta a punta por el proxy HTTPS |
+| 2026-10-31 | Etapa 4 verificada en dispositivos reales | PC + Samsung Galaxy S26 OK. Pixel 8 Pro: `ERR_TOO_MANY_RETRIES` al abrir `https://<IP>:5173` (error del navegador/red del Pixel, mismo servidor y URL que sí funcionan en los otros) |
+| 2026-10-31 | Etapa 5 (código) hecha | Backend: reenvío `signal` (ready/offer/answer/candidate/camera-state). Frontend: `utils/webrtc.js`, `useWebRTCSender`/`useWebRTCReceiver`, `RemoteVideo`. Prueba con WebRTC real (`@roamhq/wrtc`) + backend real + las dos páginas: conexión con cámara apagada, encender/apagar/re-encender, cambio de cámara en vivo, recarga del visor y de la cámara; ~30 cuadros por 1,5 s en cada caso |
 
 ---
 
@@ -282,6 +280,12 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-31 | Si el rol ya está ocupado, la conexión nueva REEMPLAZA a la anterior (la vieja recibe `replaced`) | Permite reconectar un teléfono cuya conexión quedó colgada; `room-full` ya no existe |
 | 2026-10-31 | Al reconectar, el cliente vuelve a entrar a la sala solo | WiFi inestable y teléfonos que suspenden la conexión |
 | 2026-10-31 | Tras 5 s sin conectar se muestra "Despertando el servidor…" | Cold start del plan free de Render |
+| 2026-10-31 | La cámara siempre es quien hace la oferta; el visor pide con `ready` cuando ya escucha | Evita choques de ofertas y condiciones de carrera sobre quién entró primero |
+| 2026-10-31 | Cada sesión WebRTC lleva un `sid`; los mensajes de sesiones viejas se descartan | Recargas y reconexiones sin mezclar candidatos de sesiones anteriores |
+| 2026-10-31 | Siempre se negocia una línea de video `sendonly`; la imagen entra/sale con `replaceTrack` | Encender, apagar o cambiar de cámara sin renegociar |
+| 2026-10-31 | La cámara avisa su estado con `camera-state` | El visor muestra "La cámara está apagada" de forma fiable |
+| 2026-10-31 | Tope de bitrate de 1,2 Mbps (`MAX_VIDEO_BITRATE`) | Teléfonos viejos y cuota de TURN (1 TB/mes ≈ 90 días a 1 Mbps continuo) |
+| 2026-10-31 | El visor tiene botón "Reintentar" si falla el video; la reconexión automática queda para la Etapa 7 | Mantener la Etapa 5 simple |
 
 ---
 
@@ -289,6 +293,8 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 - Verificar condiciones vigentes del plan gratuito de Cloudflare TURN y de Render antes de desplegar.
 - ~~Teléfono no llegaba al PC por la red local~~ — resuelto (2026-10-28).
+- ~~Pixel 8 Pro no abría la app (`ERR_TOO_MANY_RETRIES`)~~ — resuelto: era una regla de seguridad de Chrome (2026-10-31).
+- Mensajes de Vite `ws proxy socket error: ECONNRESET` y `npm warn install-scripts` son normales (un teléfono cerró la conexión de golpe / aviso de npm 12); no afectan.
 - Probar compatibilidad real en los teléfonos viejos (versión de Android/iOS y navegador).
 
 ---
@@ -303,8 +309,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - **Protocolo de señalización (socket.io):**
   - Cliente → servidor: `join-room` con `{ code, role: 'camera' | 'viewer' }` y ack `{ ok: true, code, role, peer: {id, role} | null }` o `{ ok: false, error: 'invalid-code' | 'invalid-role' }`.
   - Servidor → cliente: `user-joined {id, role}`, `user-left {id, role}`, `replaced`.
+  - `signal` (ambos sentidos, el servidor solo reenvía al otro de la sala; máx. 20 KB, tipos permitidos: `ready`, `offer`, `answer`, `candidate`, `camera-state`). Flujo: visor→`ready` · cámara→`offer {sid, sdp, cameraOn}` · visor→`answer {sid, sdp}` · ambos→`candidate {sid, candidate}` · cámara→`camera-state {sid, on}`.
+  - `useWebRTCSender({socket, viewerId, stream})` → `{state}`; `useWebRTCReceiver({socket, cameraId})` → `{state, remoteStream, cameraOn, retry}`. `state`: idle | negotiating | connected | disconnected | failed.
   - `useSocket({ code, role })` devuelve `{ socket, server, room, peer, error, events }`. `server`: connecting | waking | online | offline. `room`: joining | waiting | paired | replaced | error.
 - **Prueba de la Etapa 4 con dos dispositivos:** (1) teléfono en `/camera` y PC o segundo teléfono en `/viewer` con el mismo código → ambos deben mostrar "conectado" y un registro de actividad; (2) cerrar o recargar uno → el otro muestra "salió" y vuelve a "Esperando…"; (3) apagar el WiFi del teléfono unos segundos y volver a encenderlo → se reconecta y vuelve a emparejarse; (4) abrir el mismo código en un tercer dispositivo con el mismo rol → el primero muestra "La sala se abrió en otro dispositivo".
+- **Prueba de la Etapa 5 con dispositivos reales (misma WiFi, solo STUN):** (1) teléfono en `/camera`, PC o segundo teléfono en `/viewer` con el mismo código → el visor debe decir "La cámara está apagada" y la cámara "Visor conectado · sin imagen"; (2) tocar "Encender cámara" → el visor muestra el video en vivo y la cámara dice "enviando video"; (3) apagar y volver a encender; (4) cambiar entre frontal y trasera con el video en curso; (5) recargar el visor y luego la cámara → el video debe volver; (6) anotar la resolución y la fluidez en los teléfonos viejos. Con una red distinta (datos móviles) todavía NO funcionará: falta TURN (Etapa 6).
 - En desarrollo (React StrictMode) el efecto se monta dos veces; no afecta a producción.
 
 *(Agregar aquí hallazgos útiles durante el desarrollo: errores resueltos, configuraciones que funcionaron, comandos útiles.)*
