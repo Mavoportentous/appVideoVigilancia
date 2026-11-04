@@ -16,7 +16,15 @@ export default function ViewerView({ code }) {
       <p>
         Sala <strong>{formatCode(code)}</strong>
       </p>
-      <ConnectionStatus conn={conn} peerRole="camera" />
+      <ConnectionStatus
+        conn={conn}
+        peerRole="camera"
+        video={
+          video.state === 'connected' && video.route
+            ? { text: video.route === 'relay' ? 'por relay (TURN)' : 'conexión directa' }
+            : null
+        }
+      />
       <RemoteVideo
         stream={video.remoteStream}
         cameraPresent={Boolean(cameraId)}

@@ -19,10 +19,12 @@ const STATUS = {
 };
 
 /** Qué decirle a la persona sobre el envío de video al visor. */
-function describeSending(state, cameraOn) {
+function describeSending(state, cameraOn, route) {
   switch (state) {
-    case 'connected':
-      return { text: cameraOn ? 'enviando video' : 'sin imagen (cámara apagada)' };
+    case 'connected': {
+      const where = route === 'relay' ? ' · por relay' : route === 'direct' ? ' · conexión directa' : '';
+      return { text: `${cameraOn ? 'enviando video' : 'sin imagen (cámara apagada)'}${where}` };
+    }
     case 'failed':
       return { text: 'no se pudo conectar el video', bad: true };
     case 'disconnected':
@@ -40,7 +42,7 @@ export default function Camera() {
   const { stream, status, error, facing, settings, toggle, switchCamera } = useCamera();
   const viewerId = conn.room === 'paired' && conn.peer?.role === 'viewer' ? conn.peer.id : null;
   const sender = useWebRTCSender({ socket: conn.socket, viewerId, stream });
-  const video = describeSending(sender.state, status === 'on');
+  const video = describeSending(sender.state, status === 'on', sender.route);
   const indicator = STATUS[status];
   const isActive = status === 'on' || status === 'starting';
 

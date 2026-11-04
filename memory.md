@@ -28,7 +28,7 @@
 | Señalización | Node.js + Express + Socket.io | Simple y fiable |
 | WebRTC | API nativa del navegador | Más control, menos dependencias |
 | STUN | Servidores públicos de Google | Gratis |
-| TURN | Cloudflare Realtime TURN | 1 TB gratis/mes (verificar condiciones vigentes) |
+| TURN | Cloudflare Realtime TURN | Primeros 1.000 GB/mes gratis (compartidos con SFU), luego 0,05 USD/GB (verificado en la documentación, sep. 2026) |
 | Hosting frontend | Vercel o Cloudflare Pages | Gratis y excelente |
 | Hosting backend | Render.com (plan free) | Fácil de desplegar |
 
@@ -56,20 +56,21 @@ appVideoVigilancia/
 │       │   ├── useSocket.js            # socket.io + entrar a la sala con rol + estados
 │       │   └── useWebRTC.js            # useWebRTCSender (cámara) y useWebRTCReceiver (visor)
 │       ├── pages/                      # Home.jsx, Camera.jsx, Viewer.jsx
-│       ├── utils/                      # clipboard, constants, media, roomCode, storage, webrtc
+│       ├── utils/                      # clipboard, constants, iceServers, media, roomCode, storage, webrtc
 │       ├── App.jsx  main.jsx  index.css
 │       └── (rutas: /, /camera, /viewer, /viewer/:code)
 │
 ├── backend/                        # Node.js + Express + Socket.io
 │   └── src/
 │       ├── server.js                   # /api/health, /api/rooms, /api/turn-credentials, join-room, signal
+│       ├── turn.js                     # credenciales TURN de Cloudflare (caché, respaldo STUN)
 │       └── rooms.js                    # salas: 1 cámara + 1 visor, el nuevo reemplaza al anterior
 │
 ├── iniciar-dogcam.bat              # doble clic: libera puertos y levanta backend + frontend
 ├── memory.md                       # este archivo
 └── README.md
 ```
-Pendiente de crear: `useWakeLock.js` (Etapa 7) y la lógica de TURN en el backend (Etapa 6).
+Pendiente de crear: `useWakeLock.js` (Etapa 7).
 
 ---
 
@@ -201,11 +202,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - [ ] Probar en la misma red (solo STUN) con dispositivos reales antes de pasar a TURN (pendiente: prueba del usuario)
 
 ### Etapa 6 — Funcionamiento entre redes distintas (Días 11-13)
-- [ ] Cuenta en Cloudflare y activar Realtime TURN
-- [ ] Crear key de TURN y guardar credenciales en `.env` del backend
-- [ ] Endpoint `GET /turn-credentials` en el backend
-- [ ] El frontend pide las credenciales y las agrega a `RTCPeerConnection`
-- [ ] Probar con dos redes distintas (datos móviles + WiFi)
+- [ ] Cuenta en Cloudflare y activar Realtime TURN (pendiente: acción del usuario)
+- [ ] Crear key de TURN y guardar credenciales en `.env` del backend (pendiente: acción del usuario)
+- [x] Endpoint `GET /api/turn-credentials` en el backend (`turn.js`: caché 1 h, respaldo STUN, límite 60 peticiones/10 min por IP)
+- [x] El frontend pide las credenciales y las agrega a `RTCPeerConnection` (`utils/iceServers.js`)
+- [ ] Probar con dos redes distintas (datos móviles + WiFi) (pendiente: prueba del usuario; antes, probar con `?relay=1` en la misma WiFi)
 
 ### Etapa 7 — Estabilidad y experiencia de uso (Días 14-18)
 - [ ] Indicador de estado (Conectando / Conectado / Desconectado)
@@ -237,11 +238,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 ## 9. Estado actual
 
-- **Etapa en curso:** Etapa 5 (WebRTC básico) — código listo y probado; falta la prueba del usuario con dispositivos reales en la misma red
-- **Completadas:** Etapas 1, 2, 3 y 4
-- **Último avance:** la cámara envía video al visor por WebRTC (offer/answer/ICE con STUN de Google); encender/apagar/cambiar de cámara en vivo sin renegociar (2026-10-31)
-- **Próximo paso:** que el usuario pruebe en la misma WiFi (ver sección 13); luego Etapa 6 — TURN de Cloudflare (credenciales por `GET /api/turn-credentials`) para probar entre redes distintas
-- **Bloqueos:** ninguno (el problema del Pixel 8 Pro era una regla de seguridad de Chrome y ya accede)
+- **Etapa en curso:** Etapa 6 (TURN) — código listo y probado; faltan las acciones del usuario (cuenta/key de Cloudflare) y sus pruebas
+- **Completadas:** Etapas 1, 2, 3 y 4. Etapa 5 con una casilla pendiente (prueba del usuario en la misma WiFi)
+- **Último avance:** backend y frontend preparados para TURN con respaldo STUN; cada pantalla indica si el video va "conexión directa" o "por relay"; modo de prueba `?relay=1` (2026-11-03)
+- **Próximo paso:** el usuario crea la TURN key en Cloudflare (ver README, sección TURN), la pone en `backend/.env`, prueba `?relay=1` en la misma WiFi y luego con datos móviles; después Etapa 7 (estabilidad: reconexión automática, Wake Lock, errores)
+- **Bloqueos:** ninguno
 
 ---
 
@@ -256,6 +257,7 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-31 | Etapa 4 (código) hecha | Backend con roles (1 cámara + 1 visor, el nuevo reemplaza al anterior). Frontend: hook `useSocket`, `ConnectionStatus`, `ActivityLog`; Cámara y Visor entran a la sala y muestran estado. Pruebas: 9 de backend, 13 de frontend (servidor simulado) y 1 de punta a punta por el proxy HTTPS |
 | 2026-10-31 | Etapa 4 verificada en dispositivos reales | PC + Samsung Galaxy S26 OK. Pixel 8 Pro: `ERR_TOO_MANY_RETRIES` al abrir `https://<IP>:5173` (error del navegador/red del Pixel, mismo servidor y URL que sí funcionan en los otros) |
 | 2026-10-31 | Etapa 5 (código) hecha | Backend: reenvío `signal` (ready/offer/answer/candidate/camera-state). Frontend: `utils/webrtc.js`, `useWebRTCSender`/`useWebRTCReceiver`, `RemoteVideo`. Prueba con WebRTC real (`@roamhq/wrtc`) + backend real + las dos páginas: conexión con cámara apagada, encender/apagar/re-encender, cambio de cámara en vivo, recarga del visor y de la cámara; ~30 cuadros por 1,5 s en cada caso |
+| 2026-11-03 | Etapa 6 (código) hecha | Backend: `turn.js` (POST a `generate-ice-servers`, ttl 24 h, caché 1 h, respaldo STUN, límite por IP). Frontend: `iceServers.js`, `iceTransportPolicy` con `?relay=1`, `getRouteType` (directa/relay) en ambas pantallas, renovación de credenciales cada 6 h con `setConfiguration`. Pruebas: 6 de backend con Cloudflare simulado; 5 de utilidades; app completa (Cámara + Visor + backend + WebRTC real) en 3 escenarios, incluido relay forzado a través de un TURN real local (`node-turn`) |
 
 ---
 
@@ -284,8 +286,14 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-31 | Cada sesión WebRTC lleva un `sid`; los mensajes de sesiones viejas se descartan | Recargas y reconexiones sin mezclar candidatos de sesiones anteriores |
 | 2026-10-31 | Siempre se negocia una línea de video `sendonly`; la imagen entra/sale con `replaceTrack` | Encender, apagar o cambiar de cámara sin renegociar |
 | 2026-10-31 | La cámara avisa su estado con `camera-state` | El visor muestra "La cámara está apagada" de forma fiable |
-| 2026-10-31 | Tope de bitrate de 1,2 Mbps (`MAX_VIDEO_BITRATE`) | Teléfonos viejos y cuota de TURN (1 TB/mes ≈ 90 días a 1 Mbps continuo) |
+| 2026-10-31 | Tope de bitrate de 1,2 Mbps (`MAX_VIDEO_BITRATE`) | Teléfonos viejos y cuota de TURN (1.000 GB/mes ≈ 77 días a 1,2 Mbps continuo si TODO pasara por relay; el relay solo se usa cuando no hay ruta directa) |
 | 2026-10-31 | El visor tiene botón "Reintentar" si falla el video; la reconexión automática queda para la Etapa 7 | Mantener la Etapa 5 simple |
+| 2026-11-03 | Endpoint de Cloudflare: `POST /v1/turn/keys/{id}/credentials/generate-ice-servers` (formato nuevo, lista de iceServers) | Es el vigente en la documentación; el código acepta también el formato anterior (objeto) y quita el puerto 53 (bloqueado en navegadores) |
+| 2026-11-03 | Credenciales de 24 h, reutilizadas 1 h en el backend; el cliente las renueva cada 6 h | Pocas llamadas a Cloudflare y la cámara puede estar días encendida |
+| 2026-11-03 | Si Cloudflare falla o no está configurado, el backend responde con STUN y `relay:false` | La app sigue funcionando en la misma red; el motivo queda en la consola del backend |
+| 2026-11-03 | `GET /api/turn-credentials` es público pero limitado a 60 peticiones/10 min por IP | No hay forma de autenticar a un visitante sin cuentas; el límite y la caducidad reducen el abuso. Si hay abuso, borrar la TURN key en Cloudflare |
+| 2026-11-03 | Modo de prueba `?relay=1` (se recuerda en la sesión; `?relay=0` lo quita) | Validar TURN sin salir de la misma WiFi |
+| 2026-11-03 | La interfaz indica "conexión directa" o "por relay" | Saber si el video usa TURN (y consume cuota) |
 
 ---
 
@@ -295,6 +303,8 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - ~~Teléfono no llegaba al PC por la red local~~ — resuelto (2026-10-28).
 - ~~Pixel 8 Pro no abría la app (`ERR_TOO_MANY_RETRIES`)~~ — resuelto: era una regla de seguridad de Chrome (2026-10-31).
 - Mensajes de Vite `ws proxy socket error: ECONNRESET` y `npm warn install-scripts` son normales (un teléfono cerró la conexión de golpe / aviso de npm 12); no afectan.
+- Falta la prueba real de TURN con credenciales de Cloudflare (solo se probó con un Cloudflare simulado y un TURN local).
+- Si la interfaz muestra siempre "por relay" incluso en la misma WiFi, revisar que no quedó `?relay=1` activo en la sesión.
 - Probar compatibilidad real en los teléfonos viejos (versión de Android/iOS y navegador).
 
 ---
@@ -312,6 +322,9 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
   - `signal` (ambos sentidos, el servidor solo reenvía al otro de la sala; máx. 20 KB, tipos permitidos: `ready`, `offer`, `answer`, `candidate`, `camera-state`). Flujo: visor→`ready` · cámara→`offer {sid, sdp, cameraOn}` · visor→`answer {sid, sdp}` · ambos→`candidate {sid, candidate}` · cámara→`camera-state {sid, on}`.
   - `useWebRTCSender({socket, viewerId, stream})` → `{state}`; `useWebRTCReceiver({socket, cameraId})` → `{state, remoteStream, cameraOn, retry}`. `state`: idle | negotiating | connected | disconnected | failed.
   - `useSocket({ code, role })` devuelve `{ socket, server, room, peer, error, events }`. `server`: connecting | waking | online | offline. `room`: joining | waiting | paired | replaced | error.
+- **API de Cloudflare TURN (verificada en la documentación, sep. 2026):** `POST https://rtc.live.cloudflare.com/v1/turn/keys/$KEY_ID/credentials/generate-ice-servers` con `Authorization: Bearer $TOKEN` y cuerpo `{"ttl": 86400}`; responde 201 con `{ iceServers: [ {urls:[stun…]}, {urls:[turn…], username, credential} ] }`. Las TURN keys no sirven directamente como credenciales. Cuota: primeros 1.000 GB/mes gratis (compartidos con SFU), luego 0,05 USD/GB de salida.
+- **Backend → cliente:** `GET /api/turn-credentials` → `{ iceServers, relay }` (`relay:true` si hay TURN). `useWebRTCSender` y `useWebRTCReceiver` ahora devuelven también `route` ('relay' | 'direct' | null).
+- **Probar entre redes distintas:** un teléfono con datos móviles no llega a la IP local del PC. Opciones: túnel `cloudflared tunnel --url https://localhost:5173 --no-tls-verify` (sin cuenta; sugerido, NO probado en este entorno) o desplegar (Etapa 8). Con HTTPS, Vite no bloquea hosts desconocidos, así que no hace falta tocar `vite.config.js`.
 - **Prueba de la Etapa 4 con dos dispositivos:** (1) teléfono en `/camera` y PC o segundo teléfono en `/viewer` con el mismo código → ambos deben mostrar "conectado" y un registro de actividad; (2) cerrar o recargar uno → el otro muestra "salió" y vuelve a "Esperando…"; (3) apagar el WiFi del teléfono unos segundos y volver a encenderlo → se reconecta y vuelve a emparejarse; (4) abrir el mismo código en un tercer dispositivo con el mismo rol → el primero muestra "La sala se abrió en otro dispositivo".
 - **Prueba de la Etapa 5 con dispositivos reales (misma WiFi, solo STUN):** (1) teléfono en `/camera`, PC o segundo teléfono en `/viewer` con el mismo código → el visor debe decir "La cámara está apagada" y la cámara "Visor conectado · sin imagen"; (2) tocar "Encender cámara" → el visor muestra el video en vivo y la cámara dice "enviando video"; (3) apagar y volver a encender; (4) cambiar entre frontal y trasera con el video en curso; (5) recargar el visor y luego la cámara → el video debe volver; (6) anotar la resolución y la fluidez en los teléfonos viejos. Con una red distinta (datos móviles) todavía NO funcionará: falta TURN (Etapa 6).
 - En desarrollo (React StrictMode) el efecto se monta dos veces; no afecta a producción.

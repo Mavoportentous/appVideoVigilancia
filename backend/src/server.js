@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { generateRoomCode, joinRoom, leaveRoom, roomCount } from './rooms.js';
+import { getIceServers, turnConfigured } from './turn.js';
 
 const PORT = process.env.PORT || 3001;
 const ORIGINS = (process.env.FRONTEND_URL || 'https://localhost:5173,http://localhost:5173')
@@ -11,6 +12,7 @@ const ORIGINS = (process.env.FRONTEND_URL || 'https://localhost:5173,http://loca
   .filter(Boolean);
 
 const app = express();
+app.set('trust proxy', 1); // detrás del proxy de Render, para ver la IP real del cliente
 app.use(cors({ origin: ORIGINS }));
 app.use(express.json());
 
@@ -24,10 +26,35 @@ app.post('/api/rooms', (_req, res) => {
   res.json({ code: generateRoomCode() });
 });
 
-// Etapa 6: aquí se pedirán credenciales temporales a Cloudflare TURN.
-// Por ahora solo STUN público de Google.
-app.get('/api/turn-credentials', (_req, res) => {
-  res.json({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+// Límite simple por IP (en memoria) para que nadie gaste la cuota de TURN pidiendo credenciales.
+function rateLimit({ windowMs, max }) {
+  const hits = new Map();
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, h] of hits) if (h.resetAt < now) hits.delete(ip);
+  }, windowMs).unref();
+
+  return (req, res, next) => {
+    const now = Date.now();
+    let h = hits.get(req.ip);
+    if (!h || h.resetAt < now) {
+      h = { count: 0, resetAt: now + windowMs };
+      hits.set(req.ip, h);
+    }
+    h.count += 1;
+    if (h.count > max) {
+      res.set('Retry-After', String(Math.ceil((h.resetAt - now) / 1000)));
+      return res.status(429).json({ error: 'too-many-requests' });
+    }
+    return next();
+  };
+}
+
+// Servidores ICE para WebRTC: TURN de Cloudflare si está configurado; si no, solo STUN.
+// `relay` indica si hay TURN disponible.
+app.get('/api/turn-credentials', rateLimit({ windowMs: 10 * 60 * 1000, max: 60 }), async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await getIceServers());
 });
 
 const httpServer = createServer(app);
@@ -96,4 +123,9 @@ io.on('connection', (socket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`[dog-camera] backend escuchando en http://localhost:${PORT}`);
+  console.log(
+    turnConfigured()
+      ? '[dog-camera] TURN de Cloudflare: configurado'
+      : '[dog-camera] TURN de Cloudflare: NO configurado (solo STUN; funciona en la misma red)'
+  );
 });

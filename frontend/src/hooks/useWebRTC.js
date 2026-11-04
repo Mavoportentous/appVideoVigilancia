@@ -2,10 +2,47 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createPeerConnection,
   describePeerState,
+  getRouteType,
   limitBitrate,
   newSessionId,
+  refreshIceServers,
   sendSignal,
 } from '../utils/webrtc.js';
+import { getIceServers } from '../utils/iceServers.js';
+
+const ROUTE_POLL_MS = 10_000;
+const ICE_REFRESH_MS = 6 * 60 * 60 * 1000; // las credenciales duran 24 h
+
+/** Mientras hay conexión: ¿va directa o por relay? y renovar credenciales TURN. */
+function useRouteAndRefresh(pcRef, state) {
+  const [route, setRoute] = useState(null);
+
+  useEffect(() => {
+    if (state !== 'connected') {
+      setRoute(null);
+      return undefined;
+    }
+    let alive = true;
+    const check = async () => {
+      const pc = pcRef.current;
+      if (!pc) return;
+      const found = await getRouteType(pc).catch(() => null);
+      if (alive) setRoute(found);
+    };
+    check();
+    const poll = setInterval(check, ROUTE_POLL_MS);
+    const refresh = setInterval(() => {
+      if (pcRef.current) refreshIceServers(pcRef.current);
+    }, ICE_REFRESH_MS);
+    return () => {
+      alive = false;
+      clearInterval(poll);
+      clearInterval(refresh);
+    };
+  }, [state, pcRef]);
+
+  return route;
+}
 
 /*
  * Flujo (la cámara siempre es quien ofrece, así nunca chocan dos ofertas):
@@ -49,10 +86,14 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
     async function startSession() {
       closePc();
       const sid = newSessionId();
-      const pc = createPeerConnection();
-      pcRef.current = pc;
       sidRef.current = sid;
       setState('negotiating');
+
+      const { iceServers } = await getIceServers();
+      if (sidRef.current !== sid) return; // llegó otra sesión o se cerró mientras esperábamos
+
+      const pc = createPeerConnection(iceServers);
+      pcRef.current = pc;
 
       const update = () => {
         if (pcRef.current === pc) setState(describePeerState(pc));
@@ -85,16 +126,17 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
       try {
         if (msg.type === 'ready') return await startSession();
 
+        if (msg.sid !== sidRef.current) return undefined; // sesión vieja
         const pc = pcRef.current;
-        if (!pc || msg.sid !== sidRef.current) return undefined; // sesión vieja
 
         if (msg.type === 'answer') {
+          if (!pc) return undefined;
           await pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp });
           const queued = pendingRef.current;
           pendingRef.current = [];
           for (const c of queued) await pc.addIceCandidate(c).catch(() => {});
         } else if (msg.type === 'candidate') {
-          if (pc.remoteDescription) await pc.addIceCandidate(msg.candidate).catch(() => {});
+          if (pc?.remoteDescription) await pc.addIceCandidate(msg.candidate).catch(() => {});
           else pendingRef.current.push(msg.candidate);
         }
       } catch (err) {
@@ -127,7 +169,8 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
     sendSignal(socket, { type: 'camera-state', sid, on: Boolean(track) });
   }, [stream, socket]);
 
-  return { state };
+  const route = useRouteAndRefresh(pcRef, state);
+  return { state, route };
 }
 
 /** Visor: recibe el video. `cameraId` es el id de la cámara en la sala (o null). */
@@ -161,11 +204,15 @@ export function useWebRTCReceiver({ socket, cameraId }) {
 
     async function handleOffer(msg) {
       closePc();
-      const pc = createPeerConnection();
-      pcRef.current = pc;
-      sidRef.current = msg.sid;
+      sidRef.current = msg.sid; // desde ya: los candidatos que lleguen se guardan en cola
       setState('negotiating');
       setCameraOn(Boolean(msg.cameraOn));
+
+      const { iceServers } = await getIceServers();
+      if (sidRef.current !== msg.sid) return; // llegó otra oferta o se cerró mientras esperábamos
+
+      const pc = createPeerConnection(iceServers);
+      pcRef.current = pc;
 
       const update = () => {
         if (pcRef.current === pc) setState(describePeerState(pc));
@@ -199,11 +246,11 @@ export function useWebRTCReceiver({ socket, cameraId }) {
       try {
         if (msg.type === 'offer') return await handleOffer(msg);
 
+        if (msg.sid !== sidRef.current) return undefined; // sesión vieja
         const pc = pcRef.current;
-        if (!pc || msg.sid !== sidRef.current) return undefined; // sesión vieja
 
         if (msg.type === 'candidate') {
-          if (pc.remoteDescription) await pc.addIceCandidate(msg.candidate).catch(() => {});
+          if (pc?.remoteDescription) await pc.addIceCandidate(msg.candidate).catch(() => {});
           else pendingRef.current.push(msg.candidate);
         } else if (msg.type === 'camera-state') {
           setCameraOn(Boolean(msg.on));
@@ -238,5 +285,6 @@ export function useWebRTCReceiver({ socket, cameraId }) {
     request();
   }, [closePc, request]);
 
-  return { state, remoteStream, cameraOn, retry };
+  const route = useRouteAndRefresh(pcRef, state);
+  return { state, route, remoteStream, cameraOn, retry };
 }
