@@ -67,11 +67,17 @@ export async function limitBitrate(sender, maxBitrate = MAX_VIDEO_BITRATE) {
   }
 }
 
+/** Tipo de un candidato ICE ('host' | 'srflx' | 'prflx' | 'relay'). */
+export function candidateType(candidate) {
+  return candidate?.type ?? /typ (\w+)/.exec(candidate?.candidate ?? '')?.[1] ?? 'desconocido';
+}
+
 /**
- * Por dónde viaja el video: 'relay' (a través de TURN), 'direct' (directo o por STUN)
- * o null si todavía no hay conexión elegida.
+ * Detalle de la ruta elegida: { route, local, remote } o null si todavía no hay par elegido.
+ * route: 'relay' (a través de TURN) o 'direct' (directa o por STUN).
+ * local/remote: tipo de candidato de cada extremo (host, srflx, prflx, relay).
  */
-export async function getRouteType(pc) {
+export async function getRouteInfo(pc) {
   const stats = await pc.getStats();
   let pair = null;
   stats.forEach((r) => {
@@ -84,9 +90,14 @@ export async function getRouteType(pc) {
   }
   if (!pair) return null;
 
-  const local = stats.get(pair.localCandidateId);
-  const remote = stats.get(pair.remoteCandidateId);
-  return local?.candidateType === 'relay' || remote?.candidateType === 'relay' ? 'relay' : 'direct';
+  const local = stats.get(pair.localCandidateId)?.candidateType ?? null;
+  const remote = stats.get(pair.remoteCandidateId)?.candidateType ?? null;
+  return { route: local === 'relay' || remote === 'relay' ? 'relay' : 'direct', local, remote };
+}
+
+/** Solo el tipo de ruta: 'relay' | 'direct' | null. */
+export async function getRouteType(pc) {
+  return (await getRouteInfo(pc))?.route ?? null;
 }
 
 /**

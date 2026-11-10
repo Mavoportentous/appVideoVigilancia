@@ -2,6 +2,7 @@ import PageLayout from './PageLayout.jsx';
 import ConnectionStatus from './ConnectionStatus.jsx';
 import ActivityLog from './ActivityLog.jsx';
 import RemoteVideo from './RemoteVideo.jsx';
+import Diagnostics from './Diagnostics.jsx';
 import { useSocket } from '../hooks/useSocket.js';
 import { useWebRTCReceiver } from '../hooks/useWebRTC.js';
 import { formatCode } from '../utils/roomCode.js';
@@ -32,6 +33,7 @@ export default function ViewerView({ code }) {
         cameraOn={video.cameraOn}
         onRetry={video.retry}
       />
+      <Diagnostics role="Visor" state={video.state} route={video.route} diagnostics={video.diagnostics} />
       <ActivityLog events={conn.events} />
     </PageLayout>
   );

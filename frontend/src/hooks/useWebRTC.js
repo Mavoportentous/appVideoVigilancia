@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createPeerConnection,
+  candidateType,
   describePeerState,
-  getRouteType,
+  getRouteInfo,
   limitBitrate,
   newSessionId,
   refreshIceServers,
@@ -11,37 +12,52 @@ import {
 import { getIceServers } from '../utils/iceServers.js';
 
 const ROUTE_POLL_MS = 10_000;
+const ROUTE_RETRY_MS = 1_500; // mientras no se sepa la ruta, se vuelve a preguntar pronto
 const ICE_REFRESH_MS = 6 * 60 * 60 * 1000; // las credenciales duran 24 h
 
 /** Mientras hay conexión: ¿va directa o por relay? y renovar credenciales TURN. */
 function useRouteAndRefresh(pcRef, state) {
-  const [route, setRoute] = useState(null);
+  const [info, setInfo] = useState(null); // { route, local, remote }
 
   useEffect(() => {
     if (state !== 'connected') {
-      setRoute(null);
+      setInfo(null);
       return undefined;
     }
     let alive = true;
+    let timer;
     const check = async () => {
       const pc = pcRef.current;
-      if (!pc) return;
-      const found = await getRouteType(pc).catch(() => null);
-      if (alive) setRoute(found);
+      const found = pc ? await getRouteInfo(pc).catch(() => null) : null;
+      if (!alive) return;
+      setInfo(found);
+      timer = setTimeout(check, found ? ROUTE_POLL_MS : ROUTE_RETRY_MS);
     };
     check();
-    const poll = setInterval(check, ROUTE_POLL_MS);
     const refresh = setInterval(() => {
       if (pcRef.current) refreshIceServers(pcRef.current);
     }, ICE_REFRESH_MS);
     return () => {
       alive = false;
-      clearInterval(poll);
+      clearTimeout(timer);
       clearInterval(refresh);
     };
   }, [state, pcRef]);
 
-  return route;
+  return info;
+}
+
+const EMPTY_DIAG = { iceRelay: null, candidates: {} };
+
+/** Datos para el panel de diagnóstico: ¿había TURN? y cuántos candidatos de cada tipo. */
+function useDiagnosticsState() {
+  const [diag, setDiag] = useState(EMPTY_DIAG);
+  const reset = useCallback((iceRelay) => setDiag({ iceRelay, candidates: {} }), []);
+  const count = useCallback((candidate) => {
+    const type = candidateType(candidate);
+    setDiag((d) => ({ ...d, candidates: { ...d.candidates, [type]: (d.candidates[type] ?? 0) + 1 } }));
+  }, []);
+  return [diag, reset, count];
 }
 
 /*
@@ -64,6 +80,7 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
   const sidRef = useRef(null);
   const pendingRef = useRef([]); // candidatos que llegaron antes que la respuesta
   const streamRef = useRef(stream);
+  const [diag, resetDiag, countCandidate] = useDiagnosticsState();
 
   const closePc = useCallback(() => {
     const pc = pcRef.current;
@@ -89,9 +106,10 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
       sidRef.current = sid;
       setState('negotiating');
 
-      const { iceServers } = await getIceServers();
+      const { iceServers, relay } = await getIceServers();
       if (sidRef.current !== sid) return; // llegó otra sesión o se cerró mientras esperábamos
 
+      resetDiag(relay);
       const pc = createPeerConnection(iceServers);
       pcRef.current = pc;
 
@@ -102,6 +120,7 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
       pc.oniceconnectionstatechange = update;
       pc.onicecandidate = (e) => {
         if (e.candidate && pcRef.current === pc) {
+          countCandidate(e.candidate);
           sendSignal(socket, { type: 'candidate', sid, candidate: e.candidate.toJSON() });
         }
       };
@@ -151,7 +170,7 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
       socket.off('signal', onSignal);
       closePc();
     };
-  }, [socket, closePc]);
+  }, [socket, closePc, resetDiag, countCandidate]);
 
   // El visor se fue: se cierra la conexión.
   useEffect(() => {
@@ -169,8 +188,12 @@ export function useWebRTCSender({ socket, viewerId, stream }) {
     sendSignal(socket, { type: 'camera-state', sid, on: Boolean(track) });
   }, [stream, socket]);
 
-  const route = useRouteAndRefresh(pcRef, state);
-  return { state, route };
+  const info = useRouteAndRefresh(pcRef, state);
+  return {
+    state,
+    route: info?.route ?? null,
+    diagnostics: { ...diag, local: info?.local ?? null, remote: info?.remote ?? null },
+  };
 }
 
 /** Visor: recibe el video. `cameraId` es el id de la cámara en la sala (o null). */
@@ -181,6 +204,7 @@ export function useWebRTCReceiver({ socket, cameraId }) {
   const pcRef = useRef(null);
   const sidRef = useRef(null);
   const pendingRef = useRef([]);
+  const [diag, resetDiag, countCandidate] = useDiagnosticsState();
 
   const closePc = useCallback(() => {
     const pc = pcRef.current;
@@ -208,9 +232,10 @@ export function useWebRTCReceiver({ socket, cameraId }) {
       setState('negotiating');
       setCameraOn(Boolean(msg.cameraOn));
 
-      const { iceServers } = await getIceServers();
+      const { iceServers, relay } = await getIceServers();
       if (sidRef.current !== msg.sid) return; // llegó otra oferta o se cerró mientras esperábamos
 
+      resetDiag(relay);
       const pc = createPeerConnection(iceServers);
       pcRef.current = pc;
 
@@ -221,6 +246,7 @@ export function useWebRTCReceiver({ socket, cameraId }) {
       pc.oniceconnectionstatechange = update;
       pc.onicecandidate = (e) => {
         if (e.candidate && pcRef.current === pc) {
+          countCandidate(e.candidate);
           sendSignal(socket, { type: 'candidate', sid: msg.sid, candidate: e.candidate.toJSON() });
         }
       };
@@ -267,7 +293,7 @@ export function useWebRTCReceiver({ socket, cameraId }) {
       socket.off('signal', onSignal);
       closePc();
     };
-  }, [socket, closePc]);
+  }, [socket, closePc, resetDiag, countCandidate]);
 
   // Pide el video: al encontrar a la cámara (o si la cámara cambia) y al reintentar.
   // Va después del efecto anterior para que el oyente ya exista al pedirlo.
@@ -285,6 +311,13 @@ export function useWebRTCReceiver({ socket, cameraId }) {
     request();
   }, [closePc, request]);
 
-  const route = useRouteAndRefresh(pcRef, state);
-  return { state, route, remoteStream, cameraOn, retry };
+  const info = useRouteAndRefresh(pcRef, state);
+  return {
+    state,
+    route: info?.route ?? null,
+    diagnostics: { ...diag, local: info?.local ?? null, remote: info?.remote ?? null },
+    remoteStream,
+    cameraOn,
+    retry,
+  };
 }

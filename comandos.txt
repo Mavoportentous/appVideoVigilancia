@@ -1,0 +1,11 @@
+cd /e/LMK/appVideoVigilancia/backend
+npm install
+cp .env.example .env
+npm run dev
+
+cd /e/LMK/appVideoVigilancia/frontend
+npm install
+npm run dev
+
+crear túnel cloudflare:
+cloudflared tunnel --url https://localhost:5173 --no-tls-verify

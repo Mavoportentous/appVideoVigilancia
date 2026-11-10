@@ -54,7 +54,9 @@ function rateLimit({ windowMs, max }) {
 // `relay` indica si hay TURN disponible.
 app.get('/api/turn-credentials', rateLimit({ windowMs: 10 * 60 * 1000, max: 60 }), async (_req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json(await getIceServers());
+  const result = await getIceServers();
+  log(`[turn] credenciales entregadas · relay: ${result.relay}`);
+  res.json(result);
 });
 
 const httpServer = createServer(app);

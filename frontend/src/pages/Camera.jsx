@@ -5,6 +5,7 @@ import CameraView from '../components/CameraView.jsx';
 import StatusIndicator from '../components/StatusIndicator.jsx';
 import ConnectionStatus from '../components/ConnectionStatus.jsx';
 import ActivityLog from '../components/ActivityLog.jsx';
+import Diagnostics from '../components/Diagnostics.jsx';
 import { useRoomCode } from '../hooks/useRoomCode.js';
 import { useCamera } from '../hooks/useCamera.js';
 import { useSocket } from '../hooks/useSocket.js';
@@ -82,6 +83,7 @@ export default function Camera() {
         Generar código nuevo
       </button>
 
+      <Diagnostics role="Cámara" state={sender.state} route={sender.route} diagnostics={sender.diagnostics} />
       <ActivityLog events={conn.events} />
     </PageLayout>
   );
