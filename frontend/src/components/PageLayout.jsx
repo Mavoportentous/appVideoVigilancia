@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { isRelayForced } from '../utils/webrtc.js';
+import RelayBanner from './RelayBanner.jsx';
 
 export default function PageLayout({ title, backTo = '/', backLabel = 'Inicio', children }) {
   return (
@@ -11,11 +11,9 @@ export default function PageLayout({ title, backTo = '/', backLabel = 'Inicio', 
           {backLabel}
         </Link>
         <h1 className="mt-1 text-3xl font-bold">{title}</h1>
-        {isRelayForced() && (
-          <p className="mt-2 rounded-xl bg-sun/30 px-3 py-2 text-sm font-bold">
-            Modo prueba: solo relay (TURN). Para quitarlo, abre la dirección con ?relay=0
-          </p>
-        )}
+        <div className="mt-2">
+          <RelayBanner />
+        </div>
       </header>
       <main className="flex flex-col gap-5">{children}</main>
     </div>

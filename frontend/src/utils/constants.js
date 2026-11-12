@@ -15,4 +15,4 @@ export const VIDEO_LIMITS = {
 export const MAX_VIDEO_BITRATE = 1_200_000; // bits por segundo
 
 // Se muestra en el panel de diagnóstico: sirve para saber qué versión del código está cargada.
-export const APP_BUILD = 'etapa-6b';
+export const APP_BUILD = 'etapa-6c';

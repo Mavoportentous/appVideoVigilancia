@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Camera, Eye } from 'lucide-react';
+import RelayBanner from '../components/RelayBanner.jsx';
 
 export default function Home() {
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-4 px-5 py-8">
       <h1 className="text-3xl font-bold">¿Qué hará este teléfono?</h1>
+      <RelayBanner />
 
       <Link
         to="/camera"

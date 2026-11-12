@@ -72,9 +72,11 @@ el backend pide credenciales temporales (24 h) y las reutiliza durante 1 hora.
 Si sospechas que alguien abusa del servicio, borra la TURN key en el panel de Cloudflare y crea otra.
 
 ### Probar TURN sin salir de tu WiFi
-Abre cámara y visor con `?relay=1` al final de la dirección, por ejemplo
-`https://192.168.1.102:5173/?relay=1`. Fuerza a WebRTC a usar solo el relay: aparece el aviso
-"Modo prueba: solo relay (TURN)" y los estados deben decir **por relay**. Para quitarlo, abre con `?relay=0`.
+Abre la app con `?relay=1` al final de la dirección, en **cada dispositivo** (cámara y visor), por ejemplo
+`https://192.168.1.102:5173/?relay=1`. Fuerza a WebRTC a usar solo el relay: desde la pantalla de inicio aparece el aviso
+"Modo prueba: solo relay (TURN)" y los estados deben decir **por relay**. El modo queda activo mientras no cierres la
+pestaña, aunque el parámetro desaparezca de la dirección al navegar. Para quitarlo, abre con `?relay=0`.
+Comprueba que en el panel "Diagnóstico" diga "Modo relay forzado: sí".
 
 ### Probar con datos móviles
 Un teléfono con datos móviles no puede llegar a `https://192.168.x.x:5173`. Opciones:

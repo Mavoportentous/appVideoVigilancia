@@ -206,7 +206,8 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - [x] Crear key de TURN y guardar credenciales en `.env` del backend (confirmado: `/api/turn-credentials` responde `"relay":true`)
 - [x] Endpoint `GET /api/turn-credentials` en el backend (`turn.js`: caché 1 h, respaldo STUN, límite 60 peticiones/10 min por IP)
 - [x] El frontend pide las credenciales y las agrega a `RTCPeerConnection` (`utils/iceServers.js`)
-- [ ] Probar con dos redes distintas (datos móviles + WiFi) (pendiente: prueba del usuario; antes, probar con `?relay=1` en la misma WiFi)
+- [x] Probar con dos redes distintas (datos móviles + WiFi): con el túnel de Cloudflare el video conectó con ruta directa srflx–srflx y el visor reunió candidatos `relay` (TURN alcanzable)
+- [ ] Probar el relay forzado real: abrir cámara y visor con `?relay=1` (también por el túnel) y confirmar que el video circula "por relay" — comprueba el camino de datos por TURN, que aún no se ha ejercitado en real. La 1.ª prueba (2026-11-10) NO fue válida: `?relay=1` se perdía al pulsar "Ver cámara" (bug corregido en `etapa-6c`); repetirla con esa versión y comprobar "Modo relay forzado: sí" en el diagnóstico
 
 ### Etapa 7 — Estabilidad y experiencia de uso (Días 14-18)
 - [ ] Indicador de estado (Conectando / Conectado / Desconectado)
@@ -238,11 +239,11 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 
 ## 9. Estado actual
 
-- **Etapa en curso:** Etapa 6 (TURN) — Cloudflare funciona (`relay:true`) y el túnel con `cloudflared` ya se probó; falta confirmar la ruta real del video
+- **Etapa en curso:** Etapa 6 (TURN) — casi cerrada: falta repetir la prueba del relay forzado con la versión `etapa-6c`
 - **Completadas:** Etapas 1, 2, 3 y 4. Etapa 5 con una casilla pendiente (prueba del usuario en la misma WiFi)
-- **Último avance:** panel "Diagnóstico" en Cámara y Visor (versión del código, si hay TURN, candidatos por tipo, ruta elegida, botón "Copiar diagnóstico"); la ruta se consulta cada 1,5 s hasta conocerla; el backend registra cada entrega de credenciales (2026-11-04)
-- **Próximo paso:** el usuario actualiza los archivos, repite la prueba (misma WiFi con `?relay=1` y luego túnel con datos móviles) y pega el diagnóstico copiado; después, Etapa 7
-- **Bloqueos:** en la prueba del túnel el usuario no vio las leyendas "conexión directa"/"por relay" y no está seguro de si hubo video; causa por determinar (¿archivos del frontend sin actualizar?, ¿no llegó a conectar el video?)
+- **Último avance:** corregido el modo `?relay=1`, que se perdía al navegar de Inicio a otra página (el parámetro solo se leía en páginas con `PageLayout`); ahora se captura al arrancar (`main.jsx`) y el aviso aparece también en Inicio (2026-11-12)
+- **Próximo paso:** el usuario aplica `etapa6c-cambios.zip` y repite la prueba: abrir cámara y visor con `?relay=1` (también por el túnel), comprobar "Modo relay forzado: sí" y "por relay"; después, Etapa 7 (estabilidad: reconexión automática con `restartIce`, Wake Lock, errores, copiar código)
+- **Bloqueos:** ninguno
 
 ---
 
@@ -259,6 +260,8 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-10-31 | Etapa 5 (código) hecha | Backend: reenvío `signal` (ready/offer/answer/candidate/camera-state). Frontend: `utils/webrtc.js`, `useWebRTCSender`/`useWebRTCReceiver`, `RemoteVideo`. Prueba con WebRTC real (`@roamhq/wrtc`) + backend real + las dos páginas: conexión con cámara apagada, encender/apagar/re-encender, cambio de cámara en vivo, recarga del visor y de la cámara; ~30 cuadros por 1,5 s en cada caso |
 | 2026-11-03 | Etapa 6 (código) hecha | Backend: `turn.js` (POST a `generate-ice-servers`, ttl 24 h, caché 1 h, respaldo STUN, límite por IP). Frontend: `iceServers.js`, `iceTransportPolicy` con `?relay=1`, `getRouteType` (directa/relay) en ambas pantallas, renovación de credenciales cada 6 h con `setConfiguration`. Pruebas: 6 de backend con Cloudflare simulado; 5 de utilidades; app completa (Cámara + Visor + backend + WebRTC real) en 3 escenarios, incluido relay forzado a través de un TURN real local (`node-turn`) |
 | 2026-11-04 | Diagnóstico de la ruta de video | Panel `Diagnostics.jsx` (versión `APP_BUILD`, ICE con/sin TURN, candidatos por tipo, ruta elegida, copiar). `getRouteInfo` devuelve también el tipo de candidato de cada extremo; consulta cada 1,5 s mientras la ruta es desconocida y luego cada 10 s. Backend: línea de registro `[turn] credenciales entregadas · relay: …`. Probado con WebRTC real en 3 escenarios (relay forzado, normal con TURN, normal sin TURN) |
+| 2026-11-09 | `react-router-dom` 6.30 → 7.18.5 | Cierra las 2 avisos moderados de producción del `npm audit`. Cambio solo en `frontend/package.json` (la app usa BrowserRouter/MemoryRouter/Routes/Route/Link/Navigate/useNavigate/useParams, sin cambios de código). Pruebas de navegación en jsdom: enlaces, formulario del visor con validaciones, `/viewer/:code`, redirección por código inválido, ruta desconocida y BrowserRouter con botón Atrás. `npm audit --omit=dev` = 0 |
+| 2026-11-12 | Corrección del modo `?relay=1` (`etapa-6c`) | Causa: `isRelayForced()` solo se llamaba en páginas con `PageLayout`; Inicio no lo hacía y al pulsar un enlace el parámetro desaparecía de la URL, así que nunca se guardaba. Ahora `main.jsx` lo llama al arrancar y `RelayBanner` (nuevo) se muestra en Inicio y en `PageLayout`. Prueba con la entrada real (`main.jsx`) en jsdom, con y sin parámetro; la misma prueba falla con el código anterior |
 
 ---
 
@@ -297,6 +300,8 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 | 2026-11-03 | La interfaz indica "conexión directa" o "por relay" | Saber si el video usa TURN (y consume cuota) |
 | 2026-11-04 | `APP_BUILD` (en `constants.js`) se muestra en el panel de diagnóstico; actualizarlo en cada etapa | Saber con certeza qué versión del código está cargada en cada dispositivo |
 | 2026-11-04 | NO actualizar dependencias mientras se depura la prueba de TURN | Cambiar una sola cosa a la vez; el `npm audit` se atiende después (ver sección 12) |
+| 2026-11-09 | Pendiente de decidir antes de la Etapa 8: actualizar Vite/esbuild (solo desarrollo; el `npm audit` completo marca el salto a Vite 8) | `npm audit --omit=dev` ya no reporta nada; el aviso restante es del servidor de desarrollo |
+| 2026-11-12 | Los parámetros de URL que activan modos de prueba se leen en `main.jsx`, antes de renderizar | La navegación interna (`<Link>`) borra la query; si se leen más tarde, se pierden |
 
 ---
 
@@ -306,7 +311,7 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
 - ~~Teléfono no llegaba al PC por la red local~~ — resuelto (2026-10-28).
 - ~~Pixel 8 Pro no abría la app (`ERR_TOO_MANY_RETRIES`)~~ — resuelto: era una regla de seguridad de Chrome (2026-10-31).
 - Mensajes de Vite `ws proxy socket error: ECONNRESET` y `npm warn install-scripts` son normales (un teléfono cerró la conexión de golpe / aviso de npm 12); no afectan.
-- **`npm audit` (frontend, 2026-11-04): 4 vulnerabilidades (3 moderadas, 1 alta según el resumen).** (1) `esbuild <=0.24.2` (y `vite <=6.4.3` por depender de él): el aviso trata de que cualquier sitio web podría enviar peticiones al servidor de desarrollo y leer la respuesta; afecta solo al uso en desarrollo, no al sitio construido. El arreglo propuesto salta a Vite 8 (cambio mayor). (2) `react-router`/`react-router-dom` 6.x–7.17.0: redirección abierta con barra invertida en `<Link>`/`useNavigate` y una inyección de constructor en la hidratación SSR; la app es solo cliente y navega a rutas fijas o a `/viewer/<código validado>`, así que el riesgo práctico es bajo. Arreglo propuesto: `react-router-dom@7.18.5` (cambio mayor, pero la app solo usa BrowserRouter/Routes/Route/Link/Navigate/useNavigate/useParams). Para ver solo lo que afecta a producción: `npm audit --omit=dev`. Plan: actualizar react-router-dom a 7.x y probar DESPUÉS de cerrar la prueba de TURN; Vite 8 se evalúa antes del despliegue (Etapa 8).
+- ~~`npm audit` de producción (react-router)~~ — resuelto (2026-11-09) con `react-router-dom` 7.18.5. Sigue el aviso de desarrollo (`esbuild`/`vite`, ver sección 11); revisar antes de la Etapa 8. Con `npm audit --omit=dev` solo se ven las dependencias de producción.
 - Falta probar la conexión real por TURN de Cloudflare (las credenciales ya se obtienen bien; la conexión solo se probó con un Cloudflare simulado y un TURN local).
 - ~~`cloudflared` no instalado~~ — resuelto: ya funciona (`cloudflared tunnel --url https://localhost:5173 --no-tls-verify` crea el túnel y pasa las comprobaciones).
 - Si la interfaz muestra siempre "por relay" incluso en la misma WiFi, revisar que no quedó `?relay=1` activo en la sesión.
@@ -329,7 +334,9 @@ Marca con `[x]` al completar. Fechas estimadas son orientativas.
   - `useSocket({ code, role })` devuelve `{ socket, server, room, peer, error, events }`. `server`: connecting | waking | online | offline. `room`: joining | waiting | paired | replaced | error.
 - **API de Cloudflare TURN (verificada en la documentación, sep. 2026):** `POST https://rtc.live.cloudflare.com/v1/turn/keys/$KEY_ID/credentials/generate-ice-servers` con `Authorization: Bearer $TOKEN` y cuerpo `{"ttl": 86400}`; responde 201 con `{ iceServers: [ {urls:[stun…]}, {urls:[turn…], username, credential} ] }`. Las TURN keys no sirven directamente como credenciales. Cuota: primeros 1.000 GB/mes gratis (compartidos con SFU), luego 0,05 USD/GB de salida.
 - **Backend → cliente:** `GET /api/turn-credentials` → `{ iceServers, relay }` (`relay:true` si hay TURN). `useWebRTCSender` y `useWebRTCReceiver` ahora devuelven también `route` ('relay' | 'direct' | null).
+- **Si el entorno de trabajo de Claude se reinicia** (se pierde el repositorio temporal): reconstruirlo aplicando en orden los zips de `/mnt/user-data/outputs`: `appVideoVigilancia.zip`, `etapa2-cambios`, `etapa3-cambios`, `etapa4-cambios`, `etapa5-cambios`, `etapa6-cambios`, `etapa6b-cambios`, `react-router-7`, `etapa6c-cambios` (y copiar `iniciar-dogcam.bat` y `memory.md`). Después `git init` + commit para calcular el siguiente paquete de cambios.
 - **Cómo leer el diagnóstico:** abrir el panel "Diagnóstico" en Cámara y en Visor y usar "Copiar diagnóstico". Si el panel no existe, el dispositivo tiene archivos viejos. "Servidores ICE: solo STUN" = el backend no entregó TURN (ver `[turn]` en su consola). "Candidatos propios" sin `relay` con TURN disponible = no se alcanzó el servidor TURN desde esa red. "Ruta elegida": relay = usa cuota de Cloudflare; directa = no.
+- **Diagnóstico real del usuario con el túnel (2026-11-09):** `Candidatos propios: host 1 · srflx 1 · relay 4` y `Ruta elegida: conexión directa (propio: srflx, remoto: srflx)` = TURN alcanzable (4 candidatos relay) pero el video no lo necesitó: los NAT permitieron conexión directa. En la misma red: host–host.
 - **Probar entre redes distintas:** un teléfono con datos móviles no llega a la IP local del PC. Opciones: túnel `cloudflared tunnel --url https://localhost:5173 --no-tls-verify` (sin cuenta; sugerido, NO probado en este entorno) o desplegar (Etapa 8). Con HTTPS, Vite no bloquea hosts desconocidos, así que no hace falta tocar `vite.config.js`.
 - **Prueba de la Etapa 4 con dos dispositivos:** (1) teléfono en `/camera` y PC o segundo teléfono en `/viewer` con el mismo código → ambos deben mostrar "conectado" y un registro de actividad; (2) cerrar o recargar uno → el otro muestra "salió" y vuelve a "Esperando…"; (3) apagar el WiFi del teléfono unos segundos y volver a encenderlo → se reconecta y vuelve a emparejarse; (4) abrir el mismo código en un tercer dispositivo con el mismo rol → el primero muestra "La sala se abrió en otro dispositivo".
 - **Prueba de la Etapa 5 con dispositivos reales (misma WiFi, solo STUN):** (1) teléfono en `/camera`, PC o segundo teléfono en `/viewer` con el mismo código → el visor debe decir "La cámara está apagada" y la cámara "Visor conectado · sin imagen"; (2) tocar "Encender cámara" → el visor muestra el video en vivo y la cámara dice "enviando video"; (3) apagar y volver a encender; (4) cambiar entre frontal y trasera con el video en curso; (5) recargar el visor y luego la cámara → el video debe volver; (6) anotar la resolución y la fluidez en los teléfonos viejos. Con una red distinta (datos móviles) todavía NO funcionará: falta TURN (Etapa 6).
